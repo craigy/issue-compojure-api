@@ -1,35 +1,43 @@
 (ns issue-compojure-api.handler
-  (:require [compojure.api.sweet :refer :all]
+  (:require [clojure.spec.alpha :as s]
+            [compojure.api.sweet :refer :all]
             [ring.util.http-response :refer :all]
-            [schema.core :as s]))
+            [spec-tools.spec :as spec]))
 
-(s/defschema Pizza
-  {:name s/Str
-   (s/optional-key :description) s/Str
-   :size (s/enum :L :M :S)
-   :origin {:country (s/enum :FI :PO)
-            :city s/Str}})
+(s/def ::a spec/int?)
+(s/def ::b spec/int?)
+(s/def ::c spec/int?)
+(s/def ::d spec/int?)
+(s/def ::total spec/int?)
+(s/def ::total-body (s/keys ::req-un [::total]))
+
+(s/def ::x spec/int?)
+(s/def ::y spec/int?)
 
 (def app
   (api
-    {:swagger
+    {:coercion :spec
+     :swagger
      {:ui "/"
       :spec "/swagger.json"
       :data {:info {:title "Issue-compojure-api"
                     :description "Compojure Api example"}
              :tags [{:name "api", :description "some apis"}]}}}
 
-    (context "/api" []
-      :tags ["api"]
+    (context "/math/:a" []
+      :path-params [a :- ::a]
 
-      (GET "/plus" []
-        :return {:result Long}
-        :query-params [x :- Long, y :- Long]
-        :summary "adds two numbers together"
-        (ok {:result (+ x y)}))
+      (POST "/plus" []
+        :query-params [b :- ::b, {c :- ::c 0}]
+        :body [numbers (s/keys :req-un [::d])]
+        :return (s/keys :req-un [::total])
+        (ok {:total (+ a b c (:d numbers))})))
 
-      (POST "/echo" []
-        :return Pizza
-        :body [pizza Pizza]
-        :summary "echoes a Pizza"
-        (ok pizza)))))
+    (context "/data-math" []
+      (resource
+        ;; to make coercion explicit
+        {:coercion :spec
+         :get {:parameters {:query-params (s/keys :req-un [::x ::y])}
+               :responses {200 {:schema ::total-body}}
+               :handler (fn [{{:keys [x y]} :query-params}]
+                          (ok {:total (+ x y)}))}}))))
