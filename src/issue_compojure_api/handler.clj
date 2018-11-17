@@ -1,14 +1,13 @@
 (ns issue-compojure-api.handler
-  (:require [compojure.api.sweet :refer :all]
+  (:require [clojure.spec.alpha :as s]
+            [compojure.api.sweet :refer :all]
             [ring.util.http-response :refer :all]
-            [schema.core :as s]))
+            [spec-tools.spec :as spec]))
 
-(s/defschema Pizza
-  {:name s/Str
-   (s/optional-key :description) s/Str
-   :size (s/enum :L :M :S)
-   :origin {:country (s/enum :FI :PO)
-            :city s/Str}})
+
+(s/def ::x spec/int?)
+(s/def ::y spec/int?)
+(s/def ::r spec/int?)
 
 (def app
   (api
@@ -18,18 +17,18 @@
       :data {:info {:title "Issue-compojure-api"
                     :description "Compojure Api example"}
              :tags [{:name "api", :description "some apis"}]}}}
-
     (context "/api" []
       :tags ["api"]
-
-      (GET "/plus" []
-        :return {:result Long}
-        :query-params [x :- Long, y :- Long]
-        :summary "adds two numbers together"
-        (ok {:result (+ x y)}))
-
-      (POST "/echo" []
-        :return Pizza
-        :body [pizza Pizza]
-        :summary "echoes a Pizza"
-        (ok pizza)))))
+      (context "/plus" []
+        (resource
+          {:summary "adds two numbers together"
+           :coercion :spec
+           :get
+           {:parameters
+            {:query-params
+             (s/keys :req-un [::x ::y])}
+            :responses
+            {200 {:schema {:result ::r}}}
+            :handler
+            (fn [{{:keys [x y]} :query-params}]
+              (ok {:result (+ x y)}))}})))))
